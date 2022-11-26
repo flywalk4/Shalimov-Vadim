@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from os import path
+from prettytable import PrettyTable
 from jinja2 import Environment, FileSystemLoader
 import pdfkit
 
@@ -77,21 +78,28 @@ def get_key(d, value):
 
 
 class Salary:
-    def __init__(self, salary_from: str, salary_to: str, salary_currency: str):
+    def __init__(self, salary_from : str, salary_to : str, salary_gross : str, salary_currency : str):
         self.salary_from = int(float(salary_from))
         self.salary_to = int(float(salary_to))
+        self.salary_gross = salary_gross
         self.salary_currency = salary_currency
 
     def to_string(self):
         salary_string = '{0:,}'.format(self.salary_from).replace(',', ' ') + " - "
-        salary_string += '{0:,}'.format(self.salary_to).replace(',', ' ') + " (" + currencyToRus[
-            self.salary_currency] + ")"
+        salary_string += '{0:,}'.format(self.salary_to).replace(',', ' ') + " (" + currencyToRus[self.salary_currency] + ") ("
+        salary_string += grossToRus[self.salary_gross] + ")"
         return salary_string
 
 
 class Vacancy:
-    def __init__(self, name: str, salary: Salary, area_name: str, published_at: str):
+    def __init__(self, name : str, description : str, key_skills : list, experience_id : str, 
+                    premium : str, employer_name : str, salary : Salary, area_name : str, published_at : str):
         self.name = name
+        self.description = TextEditor.beautifulStr(description)
+        self.key_skills = list(key_skills.split("\n"))
+        self.experience_id = experience_id
+        self.premium = premium
+        self.employer_name = employer_name
         self.salary = salary
         self.area_name = area_name
         self.published_at = published_at
@@ -104,9 +112,175 @@ class Vacancy:
     def date_get_year(self):
         return int(self.date_to_string().split(".")[-1])
 
-    def to_list(self):
-        return [TextEditor.beautifulStr(self.name), self.salary.to_string(), self.area_name, self.date_to_string()]
+    def premium_to_string(self):
+        return self.premium.lower().replace("true", "Да").replace("false", "Нет")
 
+    def description_to_string(self):
+        return TextEditor.line_trim(self.description)
+
+    def skills_to_string(self):
+        return TextEditor.line_trim("\n".join(self.key_skills))
+
+    def experience_to_string(self):
+        return experienceToRus[self.experience_id]
+
+    def to_list(self):
+        return [TextEditor.beautifulStr(self.name), self.description_to_string(), self.skills_to_string(), self.experience_to_string(), self.premium_to_string(),  
+                self.employer_name, self.salary.to_string(), self.area_name, self.date_to_string()]
+    
+class TextEditor:
+    def beautifulStr(string : str):
+        return ' '.join(re.sub(r"<[^>]+>", '', string).split()).replace("  ", " ").replace(" ", " ")
+
+    def line_trim(string : str):
+        if len(string) > 100:
+            string = string[:100] + "..."
+        return string
+
+    def formatter(field : str, string : str):
+        if (field == "premium"):
+            string = string.replace("FALSE","Нет").replace("TRUE","Да").replace("False","Нет").replace("True","Да")
+        elif (field == "salary_gross"):
+            string = grossToRus[string.lower()]
+        elif (field == "salary_currency"):
+            string = currencyToRus[string]
+        elif (field == "experience_id"):
+            string = experienceToRus[string]
+        return [fieldToRus[field], string]
+
+
+class InputConect:
+    def __init__(self, filter_parameter_input : str, sort_field_input : str, reverse_input : str, range_input : str, columns_input : str):
+        self.filter_parameter = self.__init_filter_parametr(filter_parameter_input)
+        self.sort_field = self.__init_sort_field(sort_field_input.rstrip().lstrip(), reverse_input.rstrip().lstrip())
+        self.range = list(map(int, self.__init_range(range_input)))
+        self.columns = self.__init_columns(columns_input)
+
+    def check_input(self):
+        if not(self.filter_parameter[0] == "Нет" or self.filter_parameter[0] == "Ок"):
+            print(self.filter_parameter[0])
+            return False
+        elif not(self.sort_field[0] == "Нет" or self.sort_field[0] == "Ок"):
+            print(self.sort_field[0])
+            return False
+        return True
+
+    def __init_filter_parametr(self, filter_parameter_input : str):
+        if filter_parameter_input == "":
+            return ["Нет"]
+        elif ":" not in filter_parameter_input:
+            return ["Формат ввода некорректен"]
+        else:
+            field = filter_parameter_input.split(":")[0]
+            param = filter_parameter_input.split(":")[1]
+            field = get_key(fieldToRus, field)
+            if field == None:
+                return ["Параметр поиска некорректен"]
+            return ["Ок", field, param]
+
+    def __init_sort_field(self, sort_field_input : str, reverse_input : str):
+        if (sort_field_input != "" and sort_field_input not in list(fieldToRus.values())):
+            return ["Параметр сортировки некорректен"]
+        elif (sort_field_input == ""):
+            return ["Нет"]
+        elif not (reverse_input == "Да" or reverse_input == "Нет" or reverse_input == ""):
+            return ["Порядок сортировки задан некорректно"]
+        else:
+            if (reverse_input == "Да"):
+                reverse_input = True
+            else:
+                reverse_input = False
+            return ["Ок", sort_field_input, reverse_input]
+
+    def __init_range(self, range_input : str):
+        range_input = range_input.split(" ") 
+        if (range_input == ['']):
+            filterFrom, filterTo = 1, 99999999
+        elif (len(range_input) == 1):
+            filterFrom, filterTo = range_input[0], 99999999
+        else:
+            filterFrom, filterTo = range_input[0], range_input[1]
+        return [filterFrom, filterTo]
+    
+    def __init_columns(self, columns_input : str):
+        columns_input = columns_input.split(", ")
+        columns = []
+        if len(columns_input) >= 1 and not "" in columns_input:
+            columns = list(columns_input)
+            columns.append("№")
+        return columns
+
+class Table:
+    def __init__(self, vacancies_objects : list, fields : list, input_connect : InputConect):
+        self.vacancies_objects = vacancies_objects
+        self.input_connect = input_connect
+        self.fields = fields
+        self.table = PrettyTable()
+    
+    def filter(self):
+        vacancies = self.vacancies_objects
+        if input_connect.filter_parameter[0] == "Ок":
+            vacancies = self.filter_vacancies(vacancies)
+        if input_connect.sort_field[0] == "Ок":
+            vacancies = self.sort_vacancies(vacancies)
+        self.vacancies_objects = vacancies
+
+    def fill_table(self):
+        self.table.hrules = 1
+        self.table.align = "l"
+        self.table.field_names = ['№', 'Название', 'Описание', 'Навыки', 'Опыт работы', 'Премиум-вакансия',
+                        'Компания', 'Оклад', 'Название региона', 'Дата публикации вакансии']
+        for i in range(len(self.vacancies_objects)):
+            self.table.add_row([i + 1] + self.vacancies_objects[i].to_list())
+        self.table._max_width = {'Название': 20, 'Описание': 20, 'Навыки': 20, 'Опыт работы': 20, 'Премиум-вакансия': 20,
+                        'Компания': 20, 'Оклад': 20, 'Название региона': 20, 'Дата публикации вакансии': 20}
+
+    def print_table(self):
+        columns = self.input_connect.columns
+        start = self.input_connect.range[0]
+        end = self.input_connect.range[1]
+        print(self.table.get_string(start = start - 1, end = end - 1, fields = columns))
+
+    def filter_vacancies(self, vacancies):
+        filterField = self.input_connect.filter_parameter[1].rstrip().lstrip()
+        filterParam = self.input_connect.filter_parameter[2].rstrip().lstrip()
+        if filterField == "salary_currency":
+            filterParam = get_key(currencyToRus, filterParam)
+            return list(filter(lambda vacancy: filterParam in vacancy.salary.salary_currency, vacancies))
+        elif filterField == "premium":
+            return list(filter(lambda vacancy: filterParam in vacancy.premium.lower().replace("true", "Да").replace("false", "Нет"), vacancies))
+        elif filterField == "experience_id":
+            filterParam = get_key(experienceToRus, filterParam)
+            return list(filter(lambda vacancy: filterParam in vacancy.experience_id, vacancies))
+        elif filterField == "salary":
+            return list(filter(lambda vacancy: float(vacancy.salary.salary_from) <= float(filterParam) <= float(vacancy.salary.salary_to), vacancies))
+        elif filterField == "key_skills":
+            skills = filterParam.split(", ")
+            return list(filter(lambda vacancy: self.check_skills(vacancy.key_skills, skills), vacancies))
+        elif filterField == "published_at":
+            return list(filter(lambda vacancy: vacancy.date_to_string() == filterParam, vacancies))
+        return list(filter(lambda vacancy: filterParam == getattr(vacancy, filterField), vacancies))
+
+    def sort_vacancies(self, vacancies):
+        sort_field = self.input_connect.sort_field[1].rstrip().lstrip()
+        reverse_sort = self.input_connect.sort_field[2]
+        if sort_field == "Оклад":
+            vacancies = sorted(vacancies, key=lambda vacancy: (float(vacancy.salary.salary_from) * currency_to_rub[vacancy.salary.salary_currency] + float(vacancy.salary.salary_to) * currency_to_rub[vacancy.salary.salary_currency]) // 2, reverse = reverse_sort)
+        elif sort_field == "Опыт работы":
+            vacancies = sorted(vacancies, key=lambda vacancy: experienceToPoints[vacancy.experience_id], reverse = reverse_sort)
+        else:
+            sortIndex = fields.index(get_key(fieldToRus, sort_field)) 
+            if sort_field == "Навыки":
+                vacancies = sorted(vacancies, key=lambda vacancy: len(vacancy.key_skills), reverse = reverse_sort)
+            else:
+                vacancies = sorted(vacancies, key=lambda vacancy: getattr(vacancy, get_key(fieldToRus, sort_field)), reverse = reverse_sort)
+        return vacancies
+
+    def check_skills(self, vacancy_skills, skills):
+        for skill in skills:
+            if skill not in vacancy_skills:
+                return False
+        return True  
 
 class DataSet:
     def __init__(self, ﬁle_name: str, vacancies_objects: list):
@@ -146,11 +320,21 @@ class CsvWorker:
         return True
 
     def csv_ﬁler(self, vacancy_in, fields):
-        salary = Salary(vacancy_in[fields.index("salary_from")], vacancy_in[fields.index("salary_to")],
-                        vacancy_in[fields.index("salary_currency")])
-        vacancy = Vacancy(vacancy_in[fields.index("name")], salary, vacancy_in[fields.index("area_name")],
-                          vacancy_in[fields.index("published_at")])
-        return vacancy
+        name = vacancy_in[fields.index("name")] if "name" in fields else ""
+        description = vacancy_in[fields.index("description")] if "description" in fields else ""
+        key_skills = vacancy_in[fields.index("key_skills")] if "key_skills" in fields else ""
+        experience_id = vacancy_in[fields.index("experience_id")] if "experience_id" in fields else ""
+        premium = vacancy_in[fields.index("premium")] if "premium" in fields else ""
+        employer_name = vacancy_in[fields.index("employer_name")] if "employer_name" in fields else ""
+        area_name = vacancy_in[fields.index("area_name")] if "area_name" in fields else ""
+        salary_from = vacancy_in[fields.index("salary_from")] if "salary_from" in fields else ""
+        salary_to = vacancy_in[fields.index("salary_to")] if "salary_to" in fields else ""
+        salary_gross = vacancy_in[fields.index("salary_gross")] if "salary_gross" in fields else ""
+        salary_currency = vacancy_in[fields.index("salary_currency")] if "salary_currency" in fields else "RUR"
+        published_at = vacancy_in[fields.index("published_at")] if "published_at" in fields else ""
+        salary = Salary(salary_from, salary_to, salary_gross, salary_currency)
+        vacancy = Vacancy(name, description, key_skills, experience_id, premium, employer_name, salary, area_name, published_at)
+        return vacancy        
 
     def сsv_reader(self):
         fields = []
@@ -396,18 +580,45 @@ def print_data(data, total_vacancies):
     return [salaryDict, cityDict]
 
 
-options = {'enable-local-file-access': None}
-config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
 
-file_name = input("Введите название файла: ")
-prof_name = input("Введите название профессии: ")
 
-csv_worker = CsvWorker(file_name)
-vacancies_objects, _ = csv_worker.сsv_reader()
-data_set = DataSet(file_name, vacancies_objects)
-data = get_data(vacancies_objects, prof_name)
 
-generator = HtmlGenerator()
+if input("Выберите программу:\n1-Ваканссии \n2-Статистикa\nВаш выбор: ") == "2":
+    file_name = input("Введите название файла: ")
+    options = {'enable-local-file-access': None}
+    config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
+    prof_name = input("Введите название профессии: ")
 
-report = Report("graph.jpg", print_data(data, len(vacancies_objects)), prof_name)
-pdfkit.from_string(report.html, 'report.pdf', configuration=config, options=options)
+    csv_worker = CsvWorker(file_name)
+    vacancies_objects, _ = csv_worker.сsv_reader()
+    data_set = DataSet(file_name, vacancies_objects)
+    data = get_data(vacancies_objects, prof_name)
+
+    generator = HtmlGenerator()
+
+    report = Report("graph.jpg", print_data(data, len(vacancies_objects)), prof_name)
+    pdfkit.from_string(report.html, 'report.pdf', configuration=config, options=options)
+else:
+    file_name = input("Введите название файла: ")
+    filter_parametr_input = input("Введите параметр фильтрации: ")
+    sort_input = input("Введите параметр сортировки: ")
+    reverse_input = input("Обратный порядок сортировки (Да / Нет): ")
+    range_input= input("Введите диапазон вывода: ")
+    columns_input = input("Введите требуемые столбцы: ")
+    input_connect = InputConect(filter_parametr_input, sort_input, reverse_input, range_input, columns_input)
+    csv_worker = CsvWorker(file_name)
+
+    if (input_connect.check_input() and csv_worker.check_file()):
+        vacancies_objects, fields = csv_worker.сsv_reader()
+        data_set = DataSet(file_name, vacancies_objects)
+        if len(data_set.vacancies_objects) != 0:
+            table = Table(vacancies_objects, fields, input_connect)
+            table.filter()
+            if len(table.vacancies_objects) == 0:
+                print("Ничего не найдено")
+            else:
+                table.fill_table()
+                table.print_table()
+        else:
+            print("Нет данных")
+input()
