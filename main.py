@@ -621,4 +621,3 @@ else:
                 table.print_table()
         else:
             print("Нет данных")
-input()
