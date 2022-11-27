@@ -584,7 +584,7 @@ def print_data(data, total_vacancies):
 
 
 if input("Выберите программу:\n1-Ваканссии \n2-Статистикa\nВаш выбор: ") == "2":
-    file_name = input("Введите название файла: ")
+    file_name = input("Введите название file: ")
     options = {'enable-local-file-access': None}
     config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
     prof_name = input("Введите название профессии: ")
