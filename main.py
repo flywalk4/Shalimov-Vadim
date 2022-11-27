@@ -57,8 +57,8 @@ currency_to_rub = {
 }
 
 fieldToRus = {
-    "name": "Название",
     "description": "Описание",
+    "name": "Название",
     "key_skills": "Навыки",
     "experience_id": "Опыт работы",
     "premium": "Премиум-вакансия",
