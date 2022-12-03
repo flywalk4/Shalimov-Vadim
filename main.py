@@ -8,6 +8,7 @@ from os import path
 from prettytable import PrettyTable
 from jinja2 import Environment, FileSystemLoader
 import pdfkit
+import doctest
 
 experienceToRus = {
     "noExperience": "Нет опыта",
@@ -76,7 +77,16 @@ def get_key(d, value):
 
     Args:
         d (dict): Словарь для поиска ключа
-        value(object): Значение по которому искать 
+        value(object): Значение по которому искать
+    >>> x = {1: 2, "3": "x", 4: "2"}
+    >>> get_key(x, 2)
+    1
+    >>> x = {1: 2, "3": "x", 4: "2"}
+    >>> get_key(x, "x")
+    '3'
+    >>> x = {1: 2, "3": "x", 4: "2"}
+    >>> get_key(x, "2")
+    4
     """
     for k, v in d.items():
         if v == value:
@@ -101,6 +111,14 @@ class Salary:
                 salary_gross (str): Наличие включенного налога
                 salary_currency (str): Валюта оклада
         
+        >>> Salary("100","2000", "true", "RUR").salary_to
+        2000
+        >>> Salary(100.0,"2000", "true", "RUR").salary_from
+        100
+        >>> Salary("100","2000", "true", "RUR").salary_currency
+        'RUR'
+        >>> type(Salary("100","2000", "true", "RUR"))
+        <class '__main__.Salary'>
         """
         self.salary_from = int(float(salary_from))
         self.salary_to = int(float(salary_to))
@@ -113,6 +131,13 @@ class Salary:
 
             Returns:
                 str: '{salary_from} - {salary_to} ({salary_currency}) ({salary_gross})'
+            
+            >>> Salary("100", "2000", "true", "RUR").to_string()
+            '100 - 2 000 (Рубли) (Без вычета налогов)'
+            >>> Salary(100.0, 200, "false", "KZT").to_string()
+            '100 - 200 (Тенге) (С вычетом налогов)'
+            >>> Salary(100.0, 2000000000, "false", "EUR").to_string()
+            '100 - 2 000 000 000 (Евро) (С вычетом налогов)'
         """
         salary_string = '{0:,}'.format(self.salary_from).replace(',', ' ') + " - "
         salary_string += '{0:,}'.format(self.salary_to).replace(',', ' ') + " (" + currencyToRus[self.salary_currency] + ") ("
@@ -148,7 +173,11 @@ class Vacancy:
                 salary (Salary): Зарплата
                 area_name (str): Город работы
                 published_at (str): Дата публикации вакансии
-        
+
+        >>> Vacancy("x", "y", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").key_skills
+        ['z']
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").description
+        'xyz'
         """
         self.name = name
         self.description = TextEditor.beautifulStr(description)
@@ -165,6 +194,11 @@ class Vacancy:
 
             Returns:
                 str: Дата в формате dd.mm.yyyy
+            
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").date_to_string()
+        '03.12.2007'
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2012-10-03T17:12:09+0300").date_to_string()
+        '03.10.2012'
         """
         splitted_date = self.published_at.split("T")[0].split("-")
         date_string = splitted_date[2] + "." + splitted_date[1] + "." + splitted_date[0]
@@ -175,6 +209,11 @@ class Vacancy:
 
             Returns:
                 int: Год публикации вакансии
+            
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").date_get_year()
+        2007
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2012-10-03T17:12:09+0300").date_get_year()
+        2012
         """
         return int(self.date_to_string().split(".")[-1])
 
@@ -183,6 +222,11 @@ class Vacancy:
 
             Returns:
                 str: Значение premium перведенное на Русский язык
+            
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").premium_to_string()
+        'Да'
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "False", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").premium_to_string()
+        'Нет'
         """
         return self.premium.lower().replace("true", "Да").replace("false", "Нет")
 
@@ -191,14 +235,20 @@ class Vacancy:
 
             Returns:
                 str: Значение description после обрезки
+        
+        >>> Vacancy("x", 'x'*1000, 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").description_to_string()
+        'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...'
+        >>> Vacancy("x", 'xxxx', 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").description_to_string()
+        'xxxx'
         """
+        
         return TextEditor.line_trim(self.description)
 
     def skills_to_string(self):
-        """переводит key_skills класса Vacancy в str и обрезает их до 100 символов
+        """Переводит key_skills класса Vacancy в str склеивая их
 
             Returns:
-                str: Значение description после обрезки
+                str: Значение key_skills склееной в строку
         """
         return TextEditor.line_trim("\n".join(self.key_skills))
 
@@ -207,6 +257,13 @@ class Vacancy:
 
             Returns:
                 str: Значение experience_id перведенное на Русский язык
+        
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "noExperience", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").experience_to_string()
+        'Нет опыта'
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "between1And3", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").experience_to_string()
+        'От 1 года до 3 лет'
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "between3And6", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").experience_to_string()
+        'От 3 до 6 лет'
         """
         return experienceToRus[self.experience_id]
 
@@ -214,7 +271,9 @@ class Vacancy:
         """Возвращает вакансию в виде list для добавление в таблицу
 
             Returns:
-                list: Массив со всеми нужными аттрибутами вакансии 
+                list: Массив со всеми нужными аттрибутами вакансии  
+        >>> Vacancy("x", "<br><b>x</b>yz</br>", 'z', "between3And6", "true", "x", Salary("100", "2000", "true", "RUR"), "x", "2007-12-03T17:40:09+0300").to_list()
+        ['x', 'xyz', 'z', 'От 3 до 6 лет', 'Да', 'x', '100 - 2 000 (Рубли) (Без вычета налогов)', 'x', '03.12.2007']
         """
         return [TextEditor.beautifulStr(self.name), self.description_to_string(), self.skills_to_string(), self.experience_to_string(), self.premium_to_string(),  
                 self.employer_name, self.salary.to_string(), self.area_name, self.date_to_string()]
@@ -894,43 +953,44 @@ class DataWorker:
 
 
 
+if __name__ == "__main__":
+    doctest.testmod()
+    if input("Выберите программу:\n1-Ваканссии \n2-Статистикa\nВаш выбор: ") == "2":
+        file_name = input("Введите название file: ")
+        options = {'enable-local-file-access': None}
+        config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
+        prof_name = input("Введите название профессии: ")
 
-if input("Выберите программу:\n1-Ваканссии \n2-Статистикa\nВаш выбор: ") == "2":
-    file_name = input("Введите название file: ")
-    options = {'enable-local-file-access': None}
-    config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
-    prof_name = input("Введите название профессии: ")
-
-    csv_worker = CsvWorker(file_name)
-    vacancies_objects, _ = csv_worker.сsv_reader()
-    data_set = DataSet(file_name, vacancies_objects)
-    dataWorker = DataWorker()
-    data = dataWorker.get_data(vacancies_objects, prof_name)
-
-    generator = HtmlGenerator()
-
-    report = Report("graph.jpg", dataWorker.print_data(data, len(vacancies_objects)), prof_name)
-    pdfkit.from_string(report.html, 'report.pdf', configuration=config, options=options)
-else:
-    file_name = input("Введите название файла: ")
-    filter_parametr_input = input("Введите параметр фильтрации: ")
-    sort_input = input("Введите параметр сортировки: ")
-    reverse_input = input("Обратный порядок сортировки (Да / Нет): ")
-    range_input= input("Введите диапазон вывода: ")
-    columns_input = input("Введите требуемые столбцы: ")
-    input_connect = InputConect(filter_parametr_input, sort_input, reverse_input, range_input, columns_input)
-    csv_worker = CsvWorker(file_name)
-
-    if (input_connect.check_input() and csv_worker.check_file()):
-        vacancies_objects, fields = csv_worker.сsv_reader()
+        csv_worker = CsvWorker(file_name)
+        vacancies_objects, _ = csv_worker.сsv_reader()
         data_set = DataSet(file_name, vacancies_objects)
-        if len(data_set.vacancies_objects) != 0:
-            table = Table(vacancies_objects, fields, input_connect)
-            table.filter()
-            if len(table.vacancies_objects) == 0:
-                print("Ничего не найдено")
+        dataWorker = DataWorker()
+        data = dataWorker.get_data(vacancies_objects, prof_name)
+
+        generator = HtmlGenerator()
+
+        report = Report("graph.jpg", dataWorker.print_data(data, len(vacancies_objects)), prof_name)
+        pdfkit.from_string(report.html, 'report.pdf', configuration=config, options=options)
+    else:
+        file_name = input("Введите название файла: ")
+        filter_parametr_input = input("Введите параметр фильтрации: ")
+        sort_input = input("Введите параметр сортировки: ")
+        reverse_input = input("Обратный порядок сортировки (Да / Нет): ")
+        range_input= input("Введите диапазон вывода: ")
+        columns_input = input("Введите требуемые столбцы: ")
+        input_connect = InputConect(filter_parametr_input, sort_input, reverse_input, range_input, columns_input)
+        csv_worker = CsvWorker(file_name)
+
+        if (input_connect.check_input() and csv_worker.check_file()):
+            vacancies_objects, fields = csv_worker.сsv_reader()
+            data_set = DataSet(file_name, vacancies_objects)
+            if len(data_set.vacancies_objects) != 0:
+                table = Table(vacancies_objects, fields, input_connect)
+                table.filter()
+                if len(table.vacancies_objects) == 0:
+                    print("Ничего не найдено")
+                else:
+                    table.fill_table()
+                    table.print_table()
             else:
-                table.fill_table()
-                table.print_table()
-        else:
-            print("Нет данных")
+                print("Нет данных")
