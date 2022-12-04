@@ -9,6 +9,7 @@ from prettytable import PrettyTable
 from jinja2 import Environment, FileSystemLoader
 import pdfkit
 import doctest
+import datetime
 
 experienceToRus = {
     "noExperience": "Нет опыта",
@@ -203,6 +204,28 @@ class Vacancy:
         splitted_date = self.published_at.split("T")[0].split("-")
         date_string = splitted_date[2] + "." + splitted_date[1] + "." + splitted_date[0]
         return date_string
+
+    #def date_to_datetime_1(self):
+    #    datetime_object = datetime.datetime.strptime(self.published_at.split("+")[0], f"%Y-%m-%dT%H:%M:%S")
+    #    return datetime_object
+
+    #def date_to_datetime_2(self):
+    #    mdy = list((map(int, self.published_at.split("T")[0].split("-"))))
+    #    hms = list(map(int, self.published_at.split("T")[1].split("+")[0].split(":")))
+    #    datetime_object = datetime.datetime(mdy[0], mdy[1], mdy[2], hms[0], hms[1], hms[2])
+    #    return datetime_object
+
+    #def date_to_datetime_3(self):
+    #    mdy = self.published_at.split("T")[0].split("-")
+    #    hms = self.published_at.split("T")[1].split("+")[0].split(":")
+    #    year = int(mdy[0])
+    #    month = int(mdy[1])
+    #    day = int(mdy[2])
+    #    hour = int(hms[0])
+    #    minute = int(hms[1])
+    #    second = int(hms[2])
+    #    datetime_object = datetime.datetime(year, month, day, hour, minute, second)
+    #    return datetime_object
 
     def date_get_year(self):
         """Получить год публикации вакансии
@@ -994,3 +1017,4 @@ if __name__ == "__main__":
                     table.print_table()
             else:
                 print("Нет данных")
+
